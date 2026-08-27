@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Aviator Analyzer — VIP Dashboard</title>
+<style>
+:root{--bg:#070d1c;--card:#111a2e;--card2:#16213a;--line:#24314d;--text:#f7f9ff;--muted:#94a3bd;--pink:#ff3f82;--gold:#ffc94d;--green:#35d49a}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 50% -10%,#1b2b4b 0,#070d1c 42%);color:var(--text);font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+.wrap{max-width:760px;margin:auto;min-height:100vh}.top{position:sticky;top:0;z-index:5;padding:18px 16px;border-bottom:1px solid var(--line);background:rgba(7,13,28,.92);backdrop-filter:blur(12px);display:flex;justify-content:space-between;align-items:center}
+.brand{font-weight:900;line-height:1.05;font-size:20px}.brand span{font-size:12px;color:var(--gold);letter-spacing:2px}.vip{border:1px solid #4b3c19;background:#201d17;color:var(--gold);border-radius:999px;padding:9px 13px;font-weight:800;font-size:12px}
+main{padding:22px 14px 45px}h1{font-size:27px;margin:0 0 5px;font-weight:900}h2{font-size:18px;margin:0 0 13px}p{color:var(--muted);margin:0;line-height:1.45;font-size:14px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:20px 0}.stat{background:linear-gradient(145deg,#131d32,#0f1729);border:1px solid var(--line);border-radius:16px;padding:15px}.stat small{display:block;color:var(--muted);font-weight:800;font-size:10px;letter-spacing:.5px}.stat strong{display:block;font-size:25px;margin-top:5px}.card{background:linear-gradient(145deg,#121c31,#0e1628);border:1px solid var(--line);border-radius:18px;padding:17px;margin:12px 0;box-shadow:0 10px 30px rgba(0,0,0,.15)}
+.row{display:flex;gap:9px}.row>*{flex:1}input,button,select{width:100%;border:0;border-radius:12px;padding:13px;font:inherit;font-weight:800}input,select{background:#0b1325;color:#fff;border:1px solid #293754;outline:none}button{cursor:pointer;background:#24314e;color:white}button.primary{background:linear-gradient(90deg,#ff3f82,#ff4f9a);color:white}button.gold{background:#2a2618;color:var(--gold);border:1px solid #5a491d}.tools{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:10px}
+.signal{border-left:4px solid var(--gold);background:linear-gradient(145deg,#211f17,#151a27)}.signal b{color:var(--gold);font-size:19px}.signal .meta{margin-top:8px}
+canvas{width:100%;height:230px;display:block;background:#0d1526;border-radius:12px}.chips{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:12px}.chip{background:#1b2740;border-radius:999px;text-align:center;padding:8px 4px;font-size:12px;font-weight:800}
+.rounds{max-height:250px;overflow:auto}.round{display:flex;justify-content:space-between;align-items:center;padding:10px 2px;border-bottom:1px solid #1d2940}.round:last-child{border:0}.x{font-weight:900}.low{color:#8fa0b8}.mid{color:#62d5ff}.high{color:var(--gold)}
+.footer{font-size:11px;color:#73819a;text-align:center;margin-top:18px;line-height:1.5}
+@media(max-width:430px){.grid{grid-template-columns:1fr 1fr}.chips{grid-template-columns:repeat(3,1fr)}h1{font-size:25px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header class="top"><div class="brand">✈️ AVIATOR<br>ANALYZER <span>VIP</span></div><div class="vip">VIP DASHBOARD</div></header>
+<main>
+<h1>Historical Round Analyzer</h1><p>Track completed rounds, inspect patterns and monitor historical volatility.</p>
+
+<section class="grid">
+<div class="stat"><small>TOTAL ROUNDS</small><strong id="total">0</strong></div>
+<div class="stat"><small>AVERAGE</small><strong id="avg">0.00×</strong></div>
+<div class="stat"><small>UNDER 2×</small><strong id="under">0%</strong></div>
+<div class="stat"><small>5× OR MORE</small><strong id="five">0%</strong></div>
+</section>
+
+<section class="card signal"><h2>Historical Signal</h2><b id="signal">Add rounds to analyze</b><div class="meta"><p id="signalText">This is descriptive historical analysis only — not a forecast or guaranteed next result.</p></div></section>
+
+<section class="card">
+<h2>Add completed multiplier</h2>
+<div class="row"><input id="mult" inputmode="decimal" placeholder="Example: 2.45"><button class="primary" onclick="addRound()">Add Round</button></div>
+<div class="tools"><button onclick="undo()">Undo Last</button><button onclick="clearAll()">Clear History</button></div>
+<div class="tools"><button class="gold" onclick="exportData()">Export Data</button><button onclick="document.getElementById('file').click()">Import Data</button></div>
+<input id="file" type="file" accept=".json" hidden onchange="importData(event)">
+</section>
+
+<section class="card"><h2>Recent rounds</h2><canvas id="chart"></canvas><div id="chips" class="chips"></div></section>
+
+<section class="card"><h2>Quick breakdown</h2><div class="rounds" id="breakdown"></div></section>
+
+<p class="footer">Important: This app analyzes completed historical results. It cannot access a secret game algorithm, cannot guarantee the next multiplier, and does not establish a future result in a properly random/provably-fair game.</p>
+</main></div>
+
+<script>
+const KEY="aviator_analyzer_v2";
+let rounds=JSON.parse(localStorage.getItem(KEY)||"[]");
+const $=id=>document.getElementById(id);
+function save(){localStorage.setItem(KEY,JSON.stringify(rounds))}
+function fmt(n){return n.toFixed(2)+"×"}
+function addRound(){
+  const v=parseFloat($("mult").value);
+  if(!Number.isFinite(v)||v<1){alert("Enter a valid multiplier (1.00 or higher).");return}
+  rounds.push(Math.round(v*100)/100); save(); $("mult").value=""; render()
+}
+$("mult").addEventListener("keydown",e=>{if(e.key==="Enter")addRound()});
+function undo(){if(rounds.length){rounds.pop();save();render()}}
+function clearAll(){if(confirm("Clear all saved rounds from this browser?")){rounds=[];save();render()}}
+function exportData(){
+  const blob=new Blob([JSON.stringify({app:"Aviator Analyzer",rounds},null,2)],{type:"application/json"});
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="aviator-history.json";a.click();URL.revokeObjectURL(a.href)
+}
+function importData(e){
+  const f=e.target.files[0]; if(!f)return;
+  const r=new FileReader(); r.onload=()=>{try{const d=JSON.parse(r.result);const a=Array.isArray(d)?d:d.rounds;
+    if(!Array.isArray(a))throw 0; rounds=a.map(Number).filter(x=>Number.isFinite(x)&&x>=1).map(x=>Math.round(x*100)/100);save();render();alert("History imported.");}catch{alert("Invalid history file.")}};
+  r.readAsText(f);e.target.value=""
+}
+function render(){
+  const n=rounds.length, avg=n?rounds.reduce((a,b)=>a+b,0)/n:0;
+  const u=n?rounds.filter(x=>x<2).length/n*100:0, f=n?rounds.filter(x=>x>=5).length/n*100:0;
+  $("total").textContent=n;$("avg").textContent=fmt(avg);$("under").textContent=Math.round(u)+"%";$("five").textContent=Math.round(f)+"%";
+  let title="Not enough data",txt="Add completed rounds to see the historical summary.";
+  if(n>=3){if(f>=20){title="Higher historical volatility";txt=`${Math.round(f)}% of this sample is 5× or higher.`}
+    else if(u>=60){title="Lower historical range";txt=`${Math.round(u)}% of this sample is under 2×.`}
+    else{title="Mixed historical range";txt="The recent sample contains a mix of lower and higher multipliers."}}
+  $("signal").textContent=title;$("signalText").textContent=txt+" This is a historical statistic, not a forecast.";
+  const recent=rounds.slice(-12).reverse();
+  $("chips").innerHTML=recent.map(x=>`<div class="chip">${fmt(x)}</div>`).join("");
+  $("breakdown").innerHTML=recent.map((x,i)=>`<div class="round"><span>#${n-i}</span><span class="x ${x<2?"low":x<5?"mid":"high"}">${fmt(x)}</span></div>`).join("")||'<p>No rounds yet.</p>';
+  draw()
+}
+function draw(){
+  const c=$("chart"),ctx=c.getContext("2d"),d=devicePixelRatio||1,w=c.clientWidth,h=230;
+  c.width=w*d;c.height=h*d;ctx.scale(d,d);ctx.clearRect(0,0,w,h);
+  ctx.strokeStyle="#24314d";ctx.lineWidth=1;
+  for(let i=1;i<5;i++){let y=i*h/5;ctx.beginPath();ctx.moveTo(15,y);ctx.lineTo(w-15,y);ctx.stroke()}
+  const a=rounds.slice(-12); if(!a.length)return;
+  const max=Math.max(6,...a), step=(w-30)/Math.max(1,a.length-1);
+  ctx.beginPath();a.forEach((v,i)=>{let x=15+i*step,y=h-15-(Math.min(v,max)/max)*(h-30);i?ctx.lineTo(x,y):ctx.moveTo(x,y)});ctx.strokeStyle="#ff3f82";ctx.lineWidth=3;ctx.stroke();
+  a.forEach((v,i)=>{let x=15+i*step,y=h-15-(Math.min(v,max)/max)*(h-30);ctx.beginPath();ctx.arc(x,y,3,0,Math.PI*2);ctx.fillStyle="#ff3f82";ctx.fill()})
+}
+window.addEventListener("resize",draw);render();
+</script>
+</body>
+</html>
