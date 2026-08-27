@@ -1,0 +1,17 @@
+{
+  "name": "Aviator Analyzer VIP",
+  "short_name": "Aviator VIP",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#070d1c",
+  "theme_color": "#070d1c",
+  "description": "Historical Aviator round analyzer and dashboard.",
+  "icons": [
+    {
+      "src": "./icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
