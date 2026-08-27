@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Aviator Analyzer Pro</title>
+<style>
+:root{--bg:#080d19;--panel:#11192a;--line:#24314a;--text:#f4f7ff;--muted:#91a0ba;--accent:#ff3d71;--green:#45d483;--yellow:#ffd166}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at top,#17233b 0,#080d19 45%);color:var(--text);font-family:Inter,system-ui,-apple-system,Segoe UI,sans-serif}
+header{padding:22px 5%;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center}
+.brand{font-size:22px;font-weight:900}.badge{background:#222d46;padding:7px 12px;border-radius:99px;color:#ffd166;font-size:12px}
+main{max-width:1150px;margin:auto;padding:28px 5%}.hero h1{font-size:38px;margin:0 0 8px}.muted{color:var(--muted)}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;margin:22px 0}
+.card,.panel{background:rgba(17,25,42,.94);border:1px solid var(--line);border-radius:18px;box-shadow:0 12px 35px #0005}
+.card{padding:20px}.label{font-size:13px;color:var(--muted)}.value{font-size:29px;font-weight:900;margin-top:7px}
+.panel{padding:20px;margin-top:16px}.panel h2{margin-top:0;font-size:19px}
+.row{display:flex;gap:10px;flex-wrap:wrap}.row>*{min-width:150px;flex:1}
+input,button{padding:13px;border-radius:11px;border:1px solid var(--line);font:inherit}
+input{background:#0a1120;color:#fff}button{background:var(--accent);color:#fff;font-weight:800;cursor:pointer}button.alt{background:#1c2840}
+.signal{font-size:24px;font-weight:900}.warning{color:var(--yellow)}.safe{color:var(--green)}
+.history{display:flex;flex-wrap:wrap;gap:8px;margin-top:15px}.pill{background:#1d2942;padding:8px 11px;border-radius:99px}
+canvas{display:block;width:100%;height:280px}.notice{font-size:13px;line-height:1.6;color:#9eabc2}
+@media(max-width:600px){.hero h1{font-size:30px}header{padding:18px 4%}main{padding:22px 4%}}
+</style>
+</head>
+<body>
+<header><div class="brand">✈️ AVIATOR ANALYZER</div><div class="badge">VIP DASHBOARD</div></header>
+<main>
+<section class="hero"><h1>Historical Round Analyzer</h1><div class="muted">Track completed rounds and review historical volatility.</div></section>
+
+<div class="grid">
+<div class="card"><div class="label">TOTAL ROUNDS</div><div class="value" id="count">0</div></div>
+<div class="card"><div class="label">AVERAGE</div><div class="value" id="avg">—</div></div>
+<div class="card"><div class="label">UNDER 2×</div><div class="value" id="under">—</div></div>
+<div class="card"><div class="label">5× OR MORE</div><div class="value" id="over">—</div></div>
+</div>
+
+<div class="panel">
+<h2>Add completed multiplier</h2>
+<div class="row">
+<input id="m" type="number" min="1" step=".01" placeholder="Example: 2.45">
+<button onclick="add()">Add Round</button>
+<button class="alt" onclick="clearAll()">Clear History</button>
+</div>
+<p class="muted">Rounds are stored only in this browser in this demo version.</p>
+</div>
+
+<div class="panel">
+<h2>Signal</h2>
+<div id="signal" class="signal warning">Waiting for data…</div>
+<p id="reason" class="muted"></p>
+</div>
+
+<div class="panel">
+<h2>Recent rounds</h2>
+<canvas id="chart"></canvas>
+<div id="history" class="history"></div>
+</div>
+
+<div class="panel notice">
+<strong>Important:</strong> This application analyzes historical results. It does not have access to a secret game algorithm and cannot guarantee the next multiplier. Previous rounds do not establish the next result in a properly random/provably-fair crash game.
+</div>
+</main>
+
+<script>
+let data=JSON.parse(localStorage.getItem("aviatorPro")||"null")||[1.24,2.31,1.05,7.82,1.44,1.76,3.12,1.18,5.47,2.02,1.09,9.21];
+const $=id=>document.getElementById(id);
+function save(){localStorage.setItem("aviatorPro",JSON.stringify(data))}
+function add(){let x=parseFloat($("m").value);if(!isFinite(x)||x<1){alert("Enter a valid multiplier.");return}data.push(Math.round(x*100)/100);save();$("m").value="";render()}
+function clearAll(){data=[];save();render()}
+function percent(n,d){return d?Math.round(n/d*100):0}
+function render(){
+let n=data.length,avg=n?data.reduce((a,b)=>a+b,0)/n:0,under=data.filter(x=>x<2).length,over=data.filter(x=>x>=5).length;
+$("count").textContent=n;$("avg").textContent=n?avg.toFixed(2)+"×":"—";$("under").textContent=n?percent(under,n)+"%":"—";$("over").textContent=n?percent(over,n)+"%":"—";
+let s=$("signal"),r=$("reason");s.className="signal warning";
+if(n<5){s.textContent="Need more completed rounds";r.textContent="Add at least five rounds for the dashboard summary."}
+else if(percent(under,n)>=70){s.textContent="Many low historical rounds";r.textContent="70% or more of this sample is below 2×. This is a historical statistic, not a forecast."}
+else if(percent(over,n)>=20){s.textContent="Higher historical volatility";r.textContent="20% or more of this sample is 5×+. This is a historical statistic, not a forecast."}
+else{s.textContent="Mixed historical sample";s.className="signal safe";r.textContent="No configured historical threshold was triggered. No prediction is implied."}
+$("history").innerHTML=data.slice(-40).reverse().map(x=>`<span class="pill">${x.toFixed(2)}×</span>`).join("");draw()
+}
+function draw(){
+let c=$("chart"),ctx=c.getContext("2d"),w=c.clientWidth||900,h=280,dpr=devicePixelRatio||1;c.width=w*dpr;c.height=h*dpr;ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,w,h);
+let a=data.slice(-30);if(!a.length)return;let max=Math.max(5,...a),p=28;
+ctx.strokeStyle="#293650";ctx.lineWidth=1;
+for(let i=0;i<5;i++){let y=p+(h-2*p)*i/4;ctx.beginPath();ctx.moveTo(p,y);ctx.lineTo(w-p,y);ctx.stroke()}
+ctx.strokeStyle="#ff3d71";ctx.lineWidth=3;ctx.beginPath();
+a.forEach((v,i)=>{let x=p+(w-2*p)*(a.length==1?.5:i/(a.length-1)),y=h-p-(Math.min(v,max)/max)*(h-2*p);i?ctx.lineTo(x,y):ctx.moveTo(x,y)});ctx.stroke()
+}
+$("m").addEventListener("keydown",e=>{if(e.key==="Enter")add()});addEventListener("resize",draw);render();
+</script>
+</body></html>
